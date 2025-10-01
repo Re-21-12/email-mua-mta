@@ -1,0 +1,2 @@
+# Configuración de transporte para enrutar correos a MTA2
+example2.local smtp:[mta2]:25

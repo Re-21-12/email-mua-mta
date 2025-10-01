@@ -1,0 +1,2 @@
+# Configuración de relay host para example2.local  
+example2.local [mta2]:25

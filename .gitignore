@@ -1,0 +1,37 @@
+# Logs
+logs/
+*.log
+
+# Datos temporales de contenedores
+maildata1/
+maildata2/
+mailstate1/
+mailstate2/
+
+# Archivos de configuración sensibles (si los hubiera)
+*.key
+*.pem
+
+# Archivos del sistema Windows
+Thumbs.db
+Desktop.ini
+
+# Archivos del sistema macOS
+.DS_Store
+
+# Archivos del sistema Linux
+*~
+
+# Archivos temporales de Docker
+.dockerignore
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos de backup
+*.bak
+*.backup
+*.old
