@@ -31,6 +31,128 @@ Este proyecto configura un sistema completo de correo electrónico con múltiple
 - Servidores SMTP que manejan el envío
 - Servidores que procesan y enrutan correos
 
+### Componentes Técnicos Detallados
+
+#### 📧 **Postfix (MTA - Mail Transfer Agent)**
+
+**Postfix** es el **motor de transporte** que maneja el **envío, recepción y enrutamiento** de correos electrónicos.
+
+**¿Qué hace Postfix?**
+
+- **Envía correos** desde clientes (MUA) hacia otros servidores
+- **Recibe correos** de otros servidores de correo
+- **Enruta mensajes** entre diferentes dominios
+- **Maneja colas** de correos pendientes
+- **Aplica políticas** de seguridad y antispam
+
+**Protocolos que maneja:**
+
+- **SMTP (25)**: Recepción desde otros servidores
+- **SMTP (587)**: Envío desde clientes (submission)
+- **SMTP (465)**: Envío seguro (SMTPS)
+
+**En tu configuración:**
+
+```yaml
+# Los puertos que expone Postfix en tus MTAs
+ports:
+  - "2525:25" # SMTP server-to-server
+  - "2587:587" # SMTP submission (clientes)
+```
+
+#### 📥 **Dovecot (Servidor de Acceso al Correo)**
+
+**Dovecot** es el **servidor de buzones** que permite que los clientes **lean y gestionen** sus correos almacenados.
+
+**¿Qué hace Dovecot?**
+
+- **Almacena correos** en el sistema de archivos
+- **Sirve correos** a los clientes vía IMAP/POP3
+- **Maneja autenticación** de usuarios
+- **Indexa mensajes** para búsquedas rápidas
+- **Gestiona buzones** y carpetas
+
+**Protocolos que maneja:**
+
+- **IMAP (143)**: Acceso completo al buzón (sincronización)
+- **IMAPS (993)**: IMAP seguro con SSL/TLS
+- **POP3 (110)**: Descarga simple de mensajes
+- **POP3S (995)**: POP3 seguro con SSL/TLS
+
+**En tu configuración:**
+
+```yaml
+# Los puertos que expone Dovecot en tus MTAs
+ports:
+  - "2143:143" # IMAP para lectura de correos
+```
+
+#### 🤝 **Cómo trabajan Postfix y Dovecot juntos**
+
+```
+┌─────────────────┐
+│   Roundcube     │ ◄─── Usuario accede vía web
+│   (MUA/Cliente) │
+└─────┬───────────┘
+      │
+      ├─── SMTP:587 ───► ┌─────────────┐
+      │                  │   Postfix   │ ◄─── Envío de correos
+      │                  │    (MTA)    │
+      │                  └─────┬───────┘
+      │                        │
+      │                        ▼
+      │                  ┌─────────────┐
+      │                  │ Sistema de  │ ◄─── Almacenamiento
+      │                  │  Archivos   │
+      │                  └─────┬───────┘
+      │                        │
+      │                        ▲
+      │                  ┌─────┴───────┐
+      └─── IMAP:143 ───► │   Dovecot   │ ◄─── Lectura de correos
+                         │ (Servidor   │
+                         │  de Buzón)  │
+                         └─────────────┘
+```
+
+#### 📋 **Diferencias clave entre Postfix y Dovecot**
+
+| Aspecto                 | Postfix                   | Dovecot             |
+| ----------------------- | ------------------------- | ------------------- |
+| **Función**             | Transporta/enruta correos | Da acceso a buzones |
+| **Protocolo principal** | SMTP                      | IMAP/POP3           |
+| **Cuándo actúa**        | Al enviar/recibir         | Al leer correos     |
+| **Analogía**            | Servicio postal           | Buzón personal      |
+
+#### 🔄 **Flujo completo en tu sistema**
+
+**Envío de correo:**
+
+1. **Roundcube** se conecta a **Postfix** (puerto 587)
+2. **Postfix** procesa y envía el mensaje
+3. **Postfix** almacena copia en sistema de archivos
+4. **Dovecot** indexa el mensaje para futuras consultas
+
+**Lectura de correo:**
+
+1. **Roundcube** se conecta a **Dovecot** (puerto 143)
+2. **Dovecot** busca mensajes en el sistema de archivos
+3. **Dovecot** sirve los mensajes vía IMAP
+4. **Roundcube** muestra los correos al usuario
+
+**En tu docker-compose.yml:**
+Ambos servicios están integrados en la imagen `docker-mailserver`:
+
+```yaml
+mta1:
+  image: docker.io/mailserver/docker-mailserver:latest
+  # Esta imagen incluye:
+  # - Postfix (para SMTP)
+  # - Dovecot (para IMAP)
+  # - Configuraciones integradas
+```
+
+**En resumen**: Postfix es el "cartero" que lleva los correos, y Dovecot es el "buzón" donde se almacenan y desde donde los lees.
+
 ### Componentes del Sistema
 
 ```
