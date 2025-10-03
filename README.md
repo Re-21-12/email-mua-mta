@@ -308,22 +308,242 @@ docker-compose logs -f mta1 mta2
 - MTA1: http://localhost:8081
 - MTA2: http://localhost:8082
 
-## 📁 Estructura del proyecto
+## 📁 Estructura Detallada del Proyecto
 
 ```
 email-docker/
-├── Docker-compose.yml          # Configuración principal
-├── config1/                    # Configuración MTA1
-│   ├── postfix-accounts.cf     # Usuarios MTA1
-│   ├── postfix-main.cf         # Configuración Postfix MTA1
-│   └── postfix-relaymap.cf     # Enrutamiento MTA1
-├── config2/                    # Configuración MTA2
-│   ├── postfix-accounts.cf     # Usuarios MTA2
-│   ├── postfix-main.cf         # Configuración Postfix MTA2
-│   └── postfix-transport.cf    # Enrutamiento MTA2
-└── config/                     # Configuración WireGuard
-    └── wireguard/
+├── 📄 Docker-compose.yml          # Configuración principal de servicios
+├── 📄 README.md                   # Documentación del proyecto
+├── 📄 DEPLOYMENT-GUIDE.md         # Guía de despliegue
+├── 📄 CHANGELOG.md                # Historial de cambios
+├── 📄 LICENSE                     # Licencia del proyecto
+├── 📄 deploy.sh / deploy.bat      # Scripts de despliegue
+├── 📄 nginx-reverse-proxy.conf    # Configuración proxy inverso
+│
+├── 📁 config1/                    # 🏢 Configuración MTA1 (example1.local)
+│   ├── postfix-accounts.cf        # 👥 Cuentas de usuario y contraseñas
+│   ├── postfix-main.cf            # ⚙️  Configuración principal Postfix
+│   ├── postfix-relaymap.cf        # 🚦 Enrutamiento hacia otros dominios
+│   ├── postfix-transport.cf       # 📮 Mapeo de transporte de correos
+│   └── dovecot-quotas.cf          # 💾 Cuotas de almacenamiento
+│
+├── 📁 config2/                    # 🏢 Configuración MTA2 (example2.local)
+│   ├── postfix-accounts.cf        # 👥 Cuentas de usuario y contraseñas
+│   ├── postfix-main.cf            # ⚙️  Configuración principal Postfix
+│   ├── postfix-transport.cf       # 📮 Enrutamiento hacia otros dominios
+│   ├── postfix-relaymap.cf        # 🚦 Mapeo de relay hosts
+│   └── dovecot-quotas.cf          # 💾 Cuotas de almacenamiento
+│
+├── 📁 config/                     # 🔐 Configuración VPN WireGuard
+│   └── wireguard/
+│       ├── wg_confs/
+│       │   └── wg0.conf           # 🌐 Configuración servidor VPN
+│       ├── peer1/ peer2/ peer3/   # 👤 Configuraciones de clientes VPN
+│       ├── server/                # 🖥️  Claves del servidor VPN
+│       ├── coredns/               # 🔍 Configuración DNS interno
+│       └── templates/             # 📋 Plantillas de configuración
+│
+├── 📁 maildata1/                  # 💌 Buzones de correo MTA1
+│   └── example1.local/
+│       ├── user1/ user2/          # 📬 Buzones individuales usuarios
+│
+├── 📁 maildata2/                  # 💌 Buzones de correo MTA2
+│   └── example2.local/
+│       ├── user3/ user4/          # 📬 Buzones individuales usuarios
+│
+├── 📁 mailstate1/                 # ⚡ Estado y colas MTA1
+│   ├── lib-postfix/               # 🏃 Procesos y colas Postfix
+│   ├── lib-dovecot/               # 📊 Estados Dovecot
+│   ├── lib-amavis/                # 🛡️  Antivirus y antispam
+│   └── spool-postfix/             # 📦 Cola de correos pendientes
+│
+└── 📁 mailstate2/                 # ⚡ Estado y colas MTA2
+    ├── lib-postfix/               # 🏃 Procesos y colas Postfix
+    ├── lib-dovecot/               # 📊 Estados Dovecot
+    ├── lib-amavis/                # 🛡️  Antivirus y antispam
+    └── spool-postfix/             # 📦 Cola de correos pendientes
 ```
+
+### 📋 Descripción detallada de archivos y carpetas
+
+#### 🏗️ **Archivos de Configuración Principal**
+
+##### `Docker-compose.yml`
+
+**Propósito**: Define todos los servicios, redes y volúmenes del sistema
+
+```yaml
+services:
+  vpn: # Servicio VPN WireGuard
+  mta1: # Servidor de correo 1
+  webmail1: # Cliente web para MTA1
+  mta2: # Servidor de correo 2
+  webmail2: # Cliente web para MTA2
+```
+
+##### `DEPLOYMENT-GUIDE.md`
+
+**Propósito**: Guía paso a paso para desplegar en producción
+
+##### Scripts de despliegue
+
+**Propósito**: Automatización del despliegue
+
+- `deploy.sh` (Linux/Mac)
+- `deploy.bat` (Windows)
+
+#### ⚙️ **Configuraciones MTA1 y MTA2**
+
+##### `postfix-accounts.cf`
+
+**Propósito**: Define usuarios y contraseñas hasheadas
+**Ejemplo**:
+
+```plaintext
+user1@example1.local|{SHA512-CRYPT}$6$TRKXZ5K788CbjY1Q$cqv...
+user2@example1.local|{SHA512-CRYPT}$6$TRKXZ5K788CbjY1Q$cqv...
+```
+
+##### `postfix-main.cf`
+
+**Propósito**: Configuraciones principales de Postfix
+**Ejemplo**:
+
+```plaintext
+# Configuración de timeouts y límites
+queue_run_delay = 300s
+message_size_limit = 10240000
+mailbox_size_limit = 0
+
+# Referencias a otros archivos de configuración
+transport_maps = texthash:/tmp/docker-mailserver/postfix-transport.cf
+```
+
+##### `postfix-transport.cf` / `postfix-relaymap.cf`
+
+**Propósito**: Enrutamiento entre dominios
+**Ejemplo MTA1**:
+
+```plaintext
+# Enrutar correos de example2.local hacia MTA2
+example2.local    smtp:[mta2]:25
+```
+
+**Ejemplo MTA2**:
+
+```plaintext
+# Enrutar correos de example1.local hacia MTA1
+example1.local    smtp:[mta1]:25
+```
+
+##### `dovecot-quotas.cf`
+
+**Propósito**: Límites de almacenamiento por usuario
+**Ejemplo**:
+
+```plaintext
+user1@example1.local:userdb_quota_rule=*:storage=1G
+user2@example1.local:userdb_quota_rule=*:storage=2G
+```
+
+#### 🔐 **Configuración VPN WireGuard**
+
+##### `wg_confs/wg0.conf`
+
+**Propósito**: Configuración del servidor VPN
+**Ejemplo**:
+
+```ini
+[Interface]
+Address = 10.13.13.1
+ListenPort = 51820
+PrivateKey = QEWjmOnMEsU0TzdvXvQbUxtpDBZFMTIpT5vOdkKew0I=
+
+[Peer]
+# peer1
+PublicKey = 8FWoJ9idk9jg8mS2EjvjfgEIh3tIqGFM+LAngmHMrxg=
+AllowedIPs = 10.13.13.2/32
+```
+
+##### `peer1/peer1.conf`
+
+**Propósito**: Configuración para cliente VPN
+**Ejemplo**:
+
+```ini
+[Interface]
+Address = 10.13.13.2
+PrivateKey = CLIENTE_PRIVATE_KEY
+
+[Peer]
+PublicKey = SERVIDOR_PUBLIC_KEY
+Endpoint = vps.midominio.com:51820
+AllowedIPs = 10.13.13.0/24
+```
+
+#### 📬 **Directorios de Datos**
+
+##### `maildata1/` y `maildata2/`
+
+**Propósito**: Almacenamiento físico de correos electrónicos
+**Estructura típica**:
+
+```
+maildata1/example1.local/user1/
+├── cur/           # Correos leídos
+├── new/           # Correos nuevos
+├── tmp/           # Archivos temporales
+├── dovecot.index.log
+├── dovecot-uidlist
+└── subscriptions  # Carpetas suscritas
+```
+
+##### `mailstate1/` y `mailstate2/`
+
+**Propósito**: Estados, procesos y colas del sistema de correo
+
+**Subdirectorios importantes**:
+
+```
+mailstate1/
+├── lib-postfix/
+│   └── master.lock        # Proceso principal Postfix
+├── spool-postfix/
+│   ├── active/            # Cola de correos siendo procesados
+│   ├── deferred/          # Cola de correos diferidos
+│   ├── incoming/          # Cola de correos entrantes
+│   └── maildrop/          # Buzón de entrada temporal
+└── lib-dovecot/
+    └── instances          # Instancias activas Dovecot
+```
+
+### 🔄 **Flujo de Archivos en Operación**
+
+#### **Al enviar un correo**:
+
+1. `postfix-accounts.cf` → Autenticación usuario
+2. `postfix-main.cf` → Configuración procesamiento
+3. `postfix-transport.cf` → Decisión enrutamiento
+4. `spool-postfix/active/` → Cola de procesamiento
+5. `maildata2/ejemplo2.local/user3/new/` → Entrega final
+
+#### **Al leer correos**:
+
+1. `postfix-accounts.cf` → Autenticación IMAP
+2. `maildata1/ejemplo1.local/user1/` → Lectura buzón
+3. `dovecot.index.log` → Índices optimizados
+4. Cliente web/IMAP → Visualización
+
+### 💡 **Archivos que puedes personalizar**
+
+| Archivo                | Personalización                 |
+| ---------------------- | ------------------------------- |
+| `postfix-accounts.cf`  | ✅ Agregar/quitar usuarios      |
+| `postfix-main.cf`      | ✅ Límites, timeouts, políticas |
+| `postfix-transport.cf` | ✅ Enrutamiento entre dominios  |
+| `dovecot-quotas.cf`    | ✅ Cuotas almacenamiento        |
+| `wg0.conf`             | ✅ Red VPN, peers               |
+| `Docker-compose.yml`   | ✅ Puertos, servicios           |
 
 ## 🔧 Configuraciones importantes
 
