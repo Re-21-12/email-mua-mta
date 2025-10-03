@@ -15,6 +15,137 @@ Este proyecto configura un sistema completo de correo electrónico con múltiple
 - ✅ **Volúmenes Docker optimizados** (evita problemas de permisos Windows)
 - ✅ **Configuración simplificada** (servicios no esenciales deshabilitados)
 
+## 🏗️ Arquitectura del Sistema
+
+### Conceptos Clave
+
+**MUA (Mail User Agent)**: Son los **clientes de correo** - las aplicaciones que usan los usuarios para leer y enviar correos:
+
+- Roundcube (webmail1, webmail2)
+- Outlook, Thunderbird, Gmail (web), Apple Mail
+- Aplicaciones móviles de correo
+
+**MTA (Mail Transfer Agent)**: Son los **servidores de correo** que transportan y entregan los mensajes:
+
+- Postfix + Dovecot (mta1, mta2)
+- Servidores SMTP que manejan el envío
+- Servidores que procesan y enrutan correos
+
+### Componentes del Sistema
+
+```
+┌─────────────────┐    ┌─────────────────┐
+│   Webmail1      │    │   Webmail2      │
+│  (Roundcube)    │    │  (Roundcube)    │
+│   :8081         │    │   :8082         │
+│     MUA         │    │     MUA         │
+└─────────┬───────┘    └─────────┬───────┘
+          │                      │
+          │ IMAP/SMTP            │ IMAP/SMTP
+          │                      │
+┌─────────▼───────┐    ┌─────────▼───────┐
+│      MTA1       │◄──►│      MTA2       │
+│  (Postfix +     │    │  (Postfix +     │
+│   Dovecot)      │    │   Dovecot)      │
+│ example1.local  │    │ example2.local  │
+└─────────────────┘    └─────────────────┘
+          │                      │
+          └──────────┬───────────┘
+                     │
+           ┌─────────▼───────┐
+           │   VPN WireGuard │
+           │     :51820      │
+           │                 │
+           └─────────────────┘
+```
+
+## 🔄 Flujo del Correo Electrónico
+
+### Paso a paso: user1@example1.local → user3@example2.local
+
+#### 1. **Composición del mensaje (MUA → MTA)**
+
+```
+Usuario accede webmail1 (localhost:8081)
+Webmail1 se conecta a mta1:587 (SMTP)
+Envía mensaje a user3@example2.local
+```
+
+#### 2. **Procesamiento en MTA origen (mta1)**
+
+```
+mta1 (Postfix):
+- Verifica autenticación del usuario
+- Valida formato del mensaje
+- Determina que destino (@example2.local) es externo
+- Consulta postfix-transport.cf
+```
+
+#### 3. **Resolución de enrutamiento**
+
+```
+mta1 encuentra en postfix-transport.cf:
+example2.local    smtp:[mta2]:25
+```
+
+#### 4. **Transferencia entre MTAs**
+
+```
+mta1 → mta2 (puerto 25 interno de Docker)
+Protocolo SMTP servidor-a-servidor
+```
+
+#### 5. **Recepción en MTA destino (mta2)**
+
+```
+mta2 (Postfix):
+- Recibe el mensaje de mta1
+- Verifica que user3@example2.local existe
+- Acepta el mensaje para entrega local
+```
+
+#### 6. **Almacenamiento (Dovecot)**
+
+```
+Dovecot en mta2:
+- Almacena mensaje en buzón de user3
+- Actualiza índices y metadatos
+- Mensaje disponible vía IMAP
+```
+
+#### 7. **Lectura por el destinatario (MTA → MUA)**
+
+```
+user3 accede webmail2 (localhost:8082)
+Webmail2 se conecta a mta2:143 (IMAP)
+Descarga/visualiza el nuevo mensaje
+```
+
+### Protocolos Utilizados
+
+| Protocolo | Puerto    | Uso                                           |
+| --------- | --------- | --------------------------------------------- |
+| **SMTP**  | 25        | Transferencia servidor-a-servidor (MTA ↔ MTA) |
+| **SMTP**  | 587       | Envío desde cliente (MUA → MTA)               |
+| **IMAP**  | 143       | Lectura de correos (MUA ← MTA)                |
+| **HTTP**  | 8081/8082 | Acceso web a Roundcube                        |
+
+### Flujo Interno vs Externo
+
+#### **Correo Interno** (mismo dominio):
+
+```
+user1@example1.local → user2@example1.local
+MUA → mta1 → Dovecot (mismo servidor) → MUA
+```
+
+#### **Correo Entre Dominios** (diferentes dominios):
+
+```
+user1@example1.local → user3@example2.local
+MUA → mta1 → mta2 → Dovecot → MUA
+```
+
 ## 📋 Credenciales por defecto
 
 ### MTA1 (example1.local)
@@ -201,4 +332,5 @@ Si encuentras problemas:
 ---
 
 **Desarrollado con ❤️ usando Docker y docker-mailserver**
+
 # email-mua-mta
